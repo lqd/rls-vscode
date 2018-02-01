@@ -80,6 +80,12 @@
                 "category": "Rust"
             },
             {
+                "command": "rls.match",
+                "title": "Generate match",
+                "description": "Generate a match block for this value",
+                "category": "Rust"
+            },
+            {
                 "command": "rls.update",
                 "title": "Update the RLS",
                 "description": "Use Rustup to update Rust, the RLS, and required data",
@@ -98,6 +104,11 @@
                     "command": "rls.findImpls",
                     "when": "editorLangId == rust && editorHasReferenceProvider",
                     "group": "navigation@4"
+                },
+                {
+                    "command": "rls.match",
+                    "when": "editorLangId == rust && editorHasReferenceProvider",
+                    "group": "navigation@5"
                 }
             ]
         },

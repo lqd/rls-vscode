@@ -21,7 +21,7 @@ import * as fs from 'fs';
 import { commands, ExtensionContext, IndentAction, languages, TextEditor,
     TextEditorEdit, window, workspace } from 'vscode';
 import { LanguageClient, LanguageClientOptions, Location, NotificationType,
-    ServerOptions } from 'vscode-languageclient';
+    ServerOptions, Hover } from 'vscode-languageclient';
 
 // FIXME(#233): Don't only rely on lazily initializing it once on startup,
 // handle possible `rust-client.*` value changes while extension is running
@@ -236,6 +236,20 @@ function registerCommands(context: ExtensionContext) {
         });
     });
     context.subscriptions.push(findImplsDisposable);
+
+    const expandMatchDisposable = commands.registerTextEditorCommand('rls.match', (textEditor: TextEditor, _edit: TextEditorEdit) => {
+        lc.onReady().then(() => {
+            const params = lc.code2ProtocolConverter.asTextDocumentPositionParams(textEditor.document, textEditor.selection.active);
+            lc.sendRequest<Hover>('rustDocument/match', params)
+                .then((hover: Hover) => {
+                    console.log(hover);
+                    //commands.executeCommand('editor.action.showReferences', textEditor.document.uri, textEditor.selection.active, locations.map(lc.protocol2CodeConverter.asLocation));
+                }, (reason) => {
+                    window.showWarningMessage('expand match failed: ' + reason);
+                });
+        });
+    });
+    context.subscriptions.push(expandMatchDisposable);
 
     const rustupUpdateDisposable = commands.registerCommand('rls.update', () => {
         rustupUpdate();
