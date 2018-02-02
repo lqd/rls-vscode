@@ -19,7 +19,7 @@ import * as child_process from 'child_process';
 import * as fs from 'fs';
 
 import { commands, ExtensionContext, IndentAction, languages, TextEditor,
-    TextEditorEdit, window, workspace } from 'vscode';
+    TextEditorEdit, window, workspace, Position } from 'vscode';
 import { LanguageClient, LanguageClientOptions, Location, NotificationType,
     ServerOptions, Hover } from 'vscode-languageclient';
 
@@ -243,6 +243,29 @@ function registerCommands(context: ExtensionContext) {
             lc.sendRequest<Hover>('rustDocument/match', params)
                 .then((hover: Hover) => {
                     console.log(hover);
+
+                    textEditor.edit(edit => {
+                        let range = textEditor.document.getWordRangeAtPosition(textEditor.selection.active);
+                        let text = textEditor.document.getText(range);
+
+                        let prefix = '    ';
+                        let code = `${prefix}match ${text} {`;
+                        if (Array.isArray(hover.contents)) {
+                            for (let variant of hover.contents) {
+                                if (variant instanceof String) {
+                                    code += `\n${prefix}${prefix}${variant}`;
+                                } else {
+                                    code += `\n${prefix}${prefix}${variant.value}`;
+                                }                                
+                            }
+                        }
+                        
+                        code += `\n${prefix}}`;
+
+                        let pos = new Position(textEditor.selection.active.line + 1, 0);
+                        edit.insert(pos, code);
+                    });
+                    
                     //commands.executeCommand('editor.action.showReferences', textEditor.document.uri, textEditor.selection.active, locations.map(lc.protocol2CodeConverter.asLocation));
                 }, (reason) => {
                     window.showWarningMessage('expand match failed: ' + reason);
