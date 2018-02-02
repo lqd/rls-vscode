@@ -242,8 +242,6 @@ function registerCommands(context: ExtensionContext) {
             const params = lc.code2ProtocolConverter.asTextDocumentPositionParams(textEditor.document, textEditor.selection.active);
             lc.sendRequest<Hover>('rustDocument/match', params)
                 .then((hover: Hover) => {
-                    console.log(hover);
-
                     textEditor.edit(edit => {
                         let range = textEditor.document.getWordRangeAtPosition(textEditor.selection.active);
                         let text = textEditor.document.getText(range);
@@ -260,7 +258,7 @@ function registerCommands(context: ExtensionContext) {
                             }
                         }
                         
-                        code += `\n${prefix}}`;
+                        code += `\n${prefix}}\n`;
 
                         let pos = new Position(textEditor.selection.active.line + 1, 0);
                         edit.insert(pos, code);
