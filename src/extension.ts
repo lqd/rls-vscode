@@ -19,7 +19,7 @@ import * as child_process from 'child_process';
 import * as fs from 'fs';
 
 import { commands, ExtensionContext, IndentAction, languages, TextEditor,
-    TextEditorEdit, window, workspace, Position } from 'vscode';
+    TextEditorEdit, window, workspace, Position, Range } from 'vscode';
 import { LanguageClient, LanguageClientOptions, Location, NotificationType,
     ServerOptions, Hover } from 'vscode-languageclient';
 
@@ -246,25 +246,28 @@ function registerCommands(context: ExtensionContext) {
                         let range = textEditor.document.getWordRangeAtPosition(textEditor.selection.active);
                         let text = textEditor.document.getText(range);
 
-                        let prefix = '    ';
-                        let code = `${prefix}match ${text} {`;
+                        let code = `match ${text} {`;
                         if (Array.isArray(hover.contents)) {
                             for (let variant of hover.contents) {
                                 if (variant instanceof String) {
-                                    code += `\n${prefix}${prefix}${variant}`;
+                                    code += `\n${variant}`;
                                 } else {
-                                    code += `\n${prefix}${prefix}${variant.value}`;
+                                    code += `\n${variant.value}`;
                                 }                                
                             }
                         }
                         
-                        code += `\n${prefix}}\n`;
+                        code += `\n}\n`;
 
                         let pos = new Position(textEditor.selection.active.line + 1, 0);
                         edit.insert(pos, code);
+
+                        // try and hack formatting of the block, doesn't really work with selection formatting yet...
+                        setTimeout(function() {
+                            //let insertedRange = new Range(pos, new Position(pos.line + (code.match(/\n/g) || []).length + 1, 0));
+                            commands.executeCommand('editor.action.formatDocument', textEditor.document.uri /*, insertedRange */);
+                        }, 0);
                     });
-                    
-                    //commands.executeCommand('editor.action.showReferences', textEditor.document.uri, textEditor.selection.active, locations.map(lc.protocol2CodeConverter.asLocation));
                 }, (reason) => {
                     window.showWarningMessage('expand match failed: ' + reason);
                 });
