@@ -19,7 +19,7 @@ import * as child_process from 'child_process';
 import * as fs from 'fs';
 
 import { commands, ExtensionContext, IndentAction, languages, TextEditor,
-    TextEditorEdit, window, workspace, Position, Range } from 'vscode';
+    TextEditorEdit, window, workspace, Position, EndOfLine, Range } from 'vscode';
 import { LanguageClient, LanguageClientOptions, Location, NotificationType,
     ServerOptions, Hover } from 'vscode-languageclient';
 
@@ -243,31 +243,66 @@ function registerCommands(context: ExtensionContext) {
             lc.sendRequest<Hover>('rustDocument/match', params)
                 .then((hover: Hover) => {
                     textEditor.edit(edit => {
-                        let range = textEditor.document.getWordRangeAtPosition(textEditor.selection.active);
-                        let text = textEditor.document.getText(range);
+                        const range = textEditor.document.getWordRangeAtPosition(textEditor.selection.active);
+                        const selected = textEditor.document.getText(range);
 
-                        let code = `match ${text} {`;
+                        const pos = new Position(textEditor.selection.active.line + 1, 0);
+
+                        // HACKALOOZA: code generation and formatting.
+                        // Hopefully there is a way to generate the nicely rustfmt-formatted source in the RLS instead of in the plugins.
+                        
+                        // Note: Inserting multiple times doesn't always work as the pos might not be valid until the previous edit points
+                        // have been interpreted by the editor. 
+                        // eg calling edit.insert 10 times near the end of the document will make garbled text. Could be a vscode bug.
+                        // For now, generate the code as a multiline string, a formatting problem, but can also have an "end of line" problem, 
+                        // which "edit.insert-ing" each line doesn't have.
+                        // In this prototype I tried handling eol/formatting by hand rather than using the vscode formatting
+                        // because of the reasons described later.
+                        // Let's do it this way for now, the whole thing's a hack anyway.
+                        
+                        const eol = textEditor.document.eol === EndOfLine.LF ? '\n' : '\r\n';
+                        let tabSize = textEditor.options.tabSize || 4;
+                        if (tabSize instanceof String) {
+                            tabSize = parseInt(tabSize);
+                        }
+
+                        const lineStart = new Position(textEditor.selection.active.line, 0);
+                        const linePrefix = textEditor.document.getText(new Range(lineStart, textEditor.selection.active));
+                        
+                        const textStart = linePrefix.search(/\S/); // index of the first non whitespace char
+
+                        let indent, indentIncrement;
+                        if (textEditor.options.insertSpaces) {
+                            indent = Array(textStart + 1).join(' ');
+                            indentIncrement = indent + Array(tabSize + 1).join(' ');
+                        } else {
+                            indent = linePrefix.substring(0, textStart);
+                            indentIncrement = indent + '\t';
+                        }
+
+                        let code = indent + `match ${selected} {`;
                         if (Array.isArray(hover.contents)) {
                             for (let variant of hover.contents) {
                                 if (variant instanceof String) {
-                                    code += `\n${variant}`;
+                                    code += eol + indentIncrement + variant;
                                 } else {
-                                    code += `\n${variant.value}`;
+                                    code += eol + indentIncrement + variant.value;
                                 }                                
                             }
                         }
                         
-                        code += `\n}\n`;
+                        code += eol + indent + '}' + eol;
 
-                        let pos = new Position(textEditor.selection.active.line + 1, 0);
                         edit.insert(pos, code);
-
-                        // try and hack formatting of the block, doesn't really work with selection formatting yet...
-                        setTimeout(function() {
-                            //let insertedRange = new Range(pos, new Position(pos.line + (code.match(/\n/g) || []).length + 1, 0));
-                            commands.executeCommand('editor.action.formatDocument', textEditor.document.uri /*, insertedRange */);
-                        }, 0);
                     });
+
+                    // HACK: Formatting is still an issue at this point.
+                    // rustfmt and vscode supports formatting but:
+                    // - I can't easily get formatSelection to work
+                    // - we can actually format the whole doc instead, but using an editor command
+                    // unfortunately adds an operation to the undo stack.
+                    // commands.executeCommand('editor.action.formatDocument', textEditor.document.uri);
+
                 }, (reason) => {
                     window.showWarningMessage('expand match failed: ' + reason);
                 });
