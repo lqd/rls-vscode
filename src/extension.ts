@@ -262,7 +262,7 @@ function registerCommands(context: ExtensionContext) {
                         
                         const eol = textEditor.document.eol === EndOfLine.LF ? '\n' : '\r\n';
                         let tabSize = textEditor.options.tabSize || 4;
-                        if (tabSize instanceof String) {
+                        if (typeof tabSize === 'string') {
                             tabSize = parseInt(tabSize);
                         }
 
@@ -283,7 +283,7 @@ function registerCommands(context: ExtensionContext) {
                         let code = indent + `match ${selected} {`;
                         if (Array.isArray(hover.contents)) {
                             for (let variant of hover.contents) {
-                                if (variant instanceof String) {
+                                if (typeof variant === 'string') {
                                     code += eol + indentIncrement + variant;
                                 } else {
                                     code += eol + indentIncrement + variant.value;
